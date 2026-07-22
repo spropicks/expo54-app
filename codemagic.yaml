@@ -1,9 +1,13 @@
 # Codemagic CI/CD configuration for expo54-app (Expo SDK 54)
 # Docs: https://docs.codemagic.io/yaml-quick-start/building-a-react-native-app/
 #
-# The Android workflow below builds an installable APK (signed with the debug
-# keystore that `expo prebuild` configures by default) — perfect for testing on
-# a device. Add proper release signing + store publishing later (see comments).
+# Workflows:
+#   android-apk   - installable APK (debug-keystore signed) for Android devices
+#   ios-unsigned  - UNSIGNED .ipa built without an Apple Developer account.
+#                   Install it on an iPhone by sideloading with AltStore or
+#                   Sideloadly using a free Apple ID (app is valid for 7 days,
+#                   then re-sideload). Apple provides no way around this limit
+#                   without a paid developer account.
 
 workflows:
   android-apk:
@@ -37,13 +41,56 @@ workflows:
     artifacts:
       - android/app/build/outputs/**/*.apk
 
+  ios-unsigned:
+    name: iOS unsigned IPA (Expo 54, no Apple Developer account)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    cache:
+      cache_paths:
+        - $CM_BUILD_DIR/node_modules
+        - $HOME/Library/Caches/CocoaPods
+    environment:
+      node: v22.13.1
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Generate native iOS project (expo prebuild)
+        script: |
+          npx expo prebuild --platform ios --clean
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios && pod install
+      - name: Build archive with code signing disabled
+        script: |
+          SCHEME=$(basename "$(ls -d ios/*.xcworkspace | head -n 1)" .xcworkspace)
+          echo "Detected scheme: $SCHEME"
+          xcodebuild archive \
+            -workspace "ios/$SCHEME.xcworkspace" \
+            -scheme "$SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath "$CM_BUILD_DIR/app.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO
+      - name: Package unsigned .ipa
+        script: |
+          SCHEME=$(basename "$(ls -d ios/*.xcworkspace | head -n 1)" .xcworkspace)
+          mkdir -p "$CM_BUILD_DIR/Payload"
+          cp -r "$CM_BUILD_DIR/app.xcarchive/Products/Applications/$SCHEME.app" "$CM_BUILD_DIR/Payload/"
+          cd "$CM_BUILD_DIR"
+          zip -r "expo54-app-unsigned.ipa" Payload
+    artifacts:
+      - expo54-app-unsigned.ipa
+
   # ---------------------------------------------------------------------------
-  # iOS workflow — requires an Apple Developer account connected to Codemagic
-  # (Teams > Integrations > App Store Connect) and iOS code signing set up.
+  # Properly signed iOS workflow — requires an Apple Developer account ($99/yr)
+  # connected to Codemagic (Teams > Integrations > App Store Connect).
   # Uncomment and fill in once you have an Apple Developer membership.
   # ---------------------------------------------------------------------------
   # ios-app:
-  #   name: iOS (Expo 54)
+  #   name: iOS signed (Expo 54)
   #   max_build_duration: 120
   #   instance_type: mac_mini_m2
   #   integrations:
