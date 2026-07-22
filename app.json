@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "expo54-app",
+    "slug": "expo54-app",
+    "version": "1.0.0",
+    "scheme": "expo54app",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": [
+      "expo-router"
+    ]
+  }
+}
