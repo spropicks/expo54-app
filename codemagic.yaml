@@ -1,0 +1,77 @@
+# Codemagic CI/CD configuration for expo54-app (Expo SDK 54)
+# Docs: https://docs.codemagic.io/yaml-quick-start/building-a-react-native-app/
+#
+# The Android workflow below builds an installable APK (signed with the debug
+# keystore that `expo prebuild` configures by default) — perfect for testing on
+# a device. Add proper release signing + store publishing later (see comments).
+
+workflows:
+  android-apk:
+    name: Android APK (Expo 54)
+    max_build_duration: 120
+    instance_type: mac_mini_m2
+    environment:
+      node: v22.13.1
+      java: 17
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
+          source: true
+    scripts:
+      - name: Install npm dependencies
+        script: |
+          npm install
+      - name: Generate native Android project (expo prebuild)
+        script: |
+          npx expo prebuild --platform android --clean
+      - name: Set Android SDK location
+        script: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > "$CM_BUILD_DIR/android/local.properties"
+      - name: Build Android APK
+        script: |
+          cd android
+          ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/**/*.apk
+
+  # ---------------------------------------------------------------------------
+  # iOS workflow — requires an Apple Developer account connected to Codemagic
+  # (Teams > Integrations > App Store Connect) and iOS code signing set up.
+  # Uncomment and fill in once you have an Apple Developer membership.
+  # ---------------------------------------------------------------------------
+  # ios-app:
+  #   name: iOS (Expo 54)
+  #   max_build_duration: 120
+  #   instance_type: mac_mini_m2
+  #   integrations:
+  #     app_store_connect: codemagic
+  #   environment:
+  #     ios_signing:
+  #       distribution_type: app_store
+  #       bundle_identifier: com.spropicks.expo54app
+  #     node: v22.13.1
+  #     xcode: latest
+  #     cocoapods: default
+  #   scripts:
+  #     - name: Install npm dependencies
+  #       script: |
+  #         npm install
+  #     - name: Generate native iOS project (expo prebuild)
+  #       script: |
+  #         npx expo prebuild --platform ios --clean
+  #     - name: Install CocoaPods dependencies
+  #       script: |
+  #         cd ios && pod install
+  #     - name: Set up provisioning profiles
+  #       script: |
+  #         xcode-project use-profiles
+  #     - name: Build ipa
+  #       script: |
+  #         xcode-project build-ipa \
+  #           --workspace ios/expo54app.xcworkspace \
+  #           --scheme expo54app
+  #   artifacts:
+  #     - build/ios/ipa/*.ipa
